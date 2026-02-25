@@ -1,0 +1,52 @@
+library(dplyr)
+library(stringr)
+library(lubridate)
+
+# Read raw lines
+lines <- readLines("Unclean Dataset.csv")
+
+# Extract header properly
+header <- str_split(lines[1], ",")[[1]] %>% str_trim()
+
+# Process rows
+clean_list <- lapply(lines[-1], function(row) {
+  row <- str_remove(row, ",+$")        # remove trailing commas
+  parts <- str_split(row, "\\|")[[1]]  # split by pipe
+  parts <- str_trim(parts)
+  
+  # Ensure correct length
+  if(length(parts) == length(header)) {
+    return(parts)
+  } else {
+    return(NULL)
+  }
+})
+
+# Remove NULL rows
+clean_list <- clean_list[!sapply(clean_list, is.null)]
+
+# Combine into dataframe
+df <- as.data.frame(do.call(rbind, clean_list), stringsAsFactors = FALSE)
+
+# Assign column names
+colnames(df) <- header
+
+# Clean data types
+df <- df %>%
+  mutate(
+    Student_ID = as.numeric(Student_ID),
+    Age = as.numeric(Age),
+    Enrollment_Date = ymd(Enrollment_Date),
+    Total_Payments = as.numeric(str_remove(Total_Payments, "\\$"))
+  )
+
+# Trim text columns
+df <- df %>%
+  mutate(across(where(is.character), str_trim))
+
+# Check result
+str(df)
+head(df)
+
+# Save cleaned file
+write.csv(df, "Cleaned_Dataset.csv", row.names = FALSE)
